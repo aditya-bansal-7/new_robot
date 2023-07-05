@@ -103,7 +103,7 @@ def left_member(client,message):
 @bot.on_message(filters.command(['invites']))
 def invites_finder(client,message):
     chat_id = message.chat.id
-    if len(message.text) == 8:
+    if message.text == "/invites" or message.text == "/invites@Binaryx_robot":
         user_id = message.from_user.id
         first_name = message.from_user.first_name
         inviter = collection.find_one(
@@ -198,6 +198,8 @@ def top_invites(client,message):
         first_name = member.first_name
         last_name = member.last_name
         response += f"{index + 1}. <a href='tg://user?id={user_id}'>{first_name} {last_name}</a> , <b>{r_count}</b> Invites. (<b>{t_count}</b> Regular,<b> {l_count}</b> left,<b> {f_count}</b> fake)\n"
+    if response == "Top 10 Invites:\n\n":
+        response = "No Data Found"
     bot.send_message(chat_id,response)
 
 bot.run()
