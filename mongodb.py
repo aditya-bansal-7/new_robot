@@ -11,9 +11,16 @@ client = MongoClient(cluster_url)
 # Access the desired database
 db = client['main']
 
+list_file = os.path.join(os.getcwd(), 'lists.json')
 
 collection = db['invites']
 
+try:
+    with open(list_file, 'r') as f:
+        persons = json.load(f)
+except FileNotFoundError:
+    pass
+    
 from pyrogram import Client , filters
 
 API_ID = '1149607'
@@ -108,6 +115,50 @@ def invites_finder(client,message):
                 text += f"No data found for user <a href='tg://user?id={user_id}'>{first_name}</a>\n\n"
         bot.send_message(chat_id,text)
 
+@bot.on_message(filters.command(['twisend']))
+def twitter_send(client,message):
+    try:
+        chat_ids = persons['twitter']
+        if message.reply_to_message :
+            if message.reply_to_message.photo:
+                file_id = message.reply_to_message.photo.file_id
+                caption = message.reply_to_message.caption.html
+                if message.reply_to_message.reply_markup:
+                    markup = message.reply_to_message.reply_markup
+                    for chat_id in chat_ids:
+                        try:
+                            send_photo = bot.send_photo(chat_id, file_id, caption=caption, reply_markup=markup)
+                            bot.pin_chat_message(send_photo.chat.id, send_photo.id, True)
+                            bot.delete_messages(send_photo.chat.id, send_photo.id+1)
+                        except Exception as e:
+                            continue
+                else:
+                    for chat_id in chat_ids:
+                        try:
+                            send_photo = bot.send_photo(chat_id, file_id, caption=caption)
+                            bot.pin_chat_message(send_photo.chat.id, send_photo.id, True)
+                            bot.delete_messages(send_photo.chat.id, send_photo.id+1)
+                        except Exception as e:
+                            continue
+            elif message.reply_to_message.text:
+                text = message.reply_to_message.text.html
+                if message.reply_to_message.reply_markup:
+                    markup = message.reply_to_message.reply_markup
+                    for chat_id in chat_ids:
+                        try:
+                            send_message = bot.send_message(chat_id, text, disable_web_page_preview=True, reply_markup=markup)
+                            bot.pin_chat_message(send_message.chat.id, send_message.id)
+                            bot.delete_messages(send_message.chat.id, send_message.id+1)
+                        except Exception as e:
+                            continue
+                else:
+                    send_message = bot.send_message(chat_id, text, disable_web_page_preview=True, reply_markup=markup)
+                    bot.pin_chat_message(send_message.chat.id, send_message.id)
+                    bot.delete_messages(send_message.chat.id, send_message.id+1)
+
+    except Exception as e :
+        print(e)
+        
 @bot.on_message(filters.command(['topinvites']))
 def top_invites(client,message):
     chat_id = message.chat.id
