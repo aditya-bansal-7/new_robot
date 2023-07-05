@@ -1,20 +1,34 @@
 import os
 import json
 from pymongo import MongoClient
-
+import time
+import threading
 # Replace <password> with your actual password
 password = '1Gwhiuum22x0hmqf'
 cluster_url = 'mongodb+srv://adibnslboy:' + password + '@bnslboy.02zrow4.mongodb.net/'
 
 # Create a MongoDB client
 client = MongoClient(cluster_url)
-
+print(client)
 # Access the desired database
 db = client['main']
-
+print(db)
 list_file = os.path.join(os.getcwd(), 'lists.json')
 
 collection = db['invites']
+print(collection)
+
+
+def alive_check():
+    time.sleep(10)
+    while True:
+        bot.send_message(1443989714, "I am alive2")
+        time.sleep(600)
+
+
+time_threa = threading.Thread(target=alive_check)
+time_threa.start()
+
 
 try:
     with open(list_file, 'r') as f:
