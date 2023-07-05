@@ -19,7 +19,7 @@ from pyrogram import Client , filters
 API_ID = '1149607'
 API_HASH = 'd11f615e85605ecc85329c94cf2403b5'
 
-bot = Client("my_test", api_id=API_ID, api_hash=API_HASH, bot_token="5967390922:AAEmDl-fLntXG5dFXA1IA-Yaap9-dkpMxQw")
+bot = Client("my_test", api_id=API_ID, api_hash=API_HASH, bot_token="6133256899:AAEdpzzSliAoYzXlGXeKMa7ixBBdMvju0HA")
 
 @bot.on_message(filters.new_chat_members)
 def chatmember(client,message):
