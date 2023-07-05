@@ -9,7 +9,7 @@ cluster_url = 'mongodb+srv://adibnslboy:' + password + '@bnslboy.02zrow4.mongodb
 client = MongoClient(cluster_url)
 
 # Access the desired database
-db = client['test']
+db = client['main']
 
 
 collection = db['invites']
