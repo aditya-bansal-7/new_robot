@@ -35,6 +35,9 @@ API_HASH = 'd11f615e85605ecc85329c94cf2403b5'
 bot = Client("my_test", api_id=API_ID, api_hash=API_HASH, bot_token="6133256899:AAEdpzzSliAoYzXlGXeKMa7ixBBdMvju0HA")
 
 
+bot.start()
+bot.send_message(1443989714, "I am alive2")
+bot.stop()
 
 def alive_check():
     time.sleep(10)
