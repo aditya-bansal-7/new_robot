@@ -335,7 +335,7 @@ def callback_handler(client, callback_query):
             # ...
             print(e)
             # Inform the user about the error
-            bot.send_message(user_id, f"An error occurred while getting data \n\n\n\n\n error_message")
+            bot.send_message(user_id, f"An error occurred while getting data \n\n\n\n\n {error_message}")
 
 @bot.on_message(filters.command(['role']))
 def roles_given(client,message):
