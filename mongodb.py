@@ -214,32 +214,35 @@ def delete_tracker():
                 if chat_id not in chats:
                     chats.append(chat_id)
         for chat_id in chats:
-            members = bot.get_chat_members(chat_id)
-            for member in members:
-                if member.user.is_deleted:
-                    left_member_id = member.user.id
-                    inviter = collection.find_one(
-                        {'chat_id': chat_id, 'new_members_ids': left_member_id}
-                    )
-                    inviter2 = collection.find_one(
-                        {'chat_id': chat_id , 'fake_members_ids': left_member_id}
-                    )
-                    if inviter:
-                        inviter_id = inviter['user_id']
+            try:
+                members = bot.get_chat_members(chat_id)
+                for member in members:
+                    if member.user.is_deleted:
+                        left_member_id = member.user.id
+                        inviter = collection.find_one(
+                            {'chat_id': chat_id, 'new_members_ids': left_member_id}
+                        )
+                        inviter2 = collection.find_one(
+                            {'chat_id': chat_id , 'fake_members_ids': left_member_id}
+                        )
+                        if inviter:
+                            inviter_id = inviter['user_id']
 
-                        # Decrement the invite count for the inviter
-                        collection.update_one(
-                            {'chat_id': chat_id, 'user_id': inviter_id},
-                            {'$inc': {'regular_count': -1 ,'left_count': 1}},
-                            {'$pull': {'new_members_ids': left_member_id}}
-                        )
-                    elif inviter2:
-                        inviter_id = inviter['user_id']
-                        collection.update_one(
-                            {'chat_id': chat_id, 'user_id': inviter_id},
-                            {'$inc': {'regular_count': 0 ,'left_count': 1}},
-                            {'$pull': {'fake_members_ids': left_member_id}}
-                        )
+                            # Decrement the invite count for the inviter
+                            collection.update_one(
+                                {'chat_id': chat_id, 'user_id': inviter_id},
+                                {'$inc': {'regular_count': -1 ,'left_count': 1}},
+                                {'$pull': {'new_members_ids': left_member_id}}
+                            )
+                        elif inviter2:
+                            inviter_id = inviter['user_id']
+                            collection.update_one(
+                                {'chat_id': chat_id, 'user_id': inviter_id},
+                                {'$inc': {'regular_count': 0 ,'left_count': 1}},
+                                {'$pull': {'fake_members_ids': left_member_id}}
+                            )
+            except Exception:
+                continue
         time.sleep(86400)
 
 @bot.on_message(filters.command(['get_data']) & filters.private)
@@ -255,11 +258,14 @@ def get_data(client,message):
             if chat_id not in chats:
                 chats.append(chat_id)
     for chat_id in chats:
-        admins = bot.get_chat_members(chat_id,filter=enums.ChatMembersFilter.ADMINISTRATORS)
-        for admin in admins:
-            if admin.user.id == user_id:
-                chat = bot.get_chat(chat_id)
-                markup.inline_keyboard.append([types.InlineKeyboardButton(f'{chat.title}', callback_data=f'data:{chat_id}:{user_id}')])
+        try:
+            admins = bot.get_chat_members(chat_id,filter=enums.ChatMembersFilter.ADMINISTRATORS)
+            for admin in admins:
+                if admin.user.id == user_id:
+                    chat = bot.get_chat(chat_id)
+                    markup.inline_keyboard.append([types.InlineKeyboardButton(f'{chat.title}', callback_data=f'data:{chat_id}:{user_id}')])
+        except Exception :
+            continue
     text = "👉🏻 <u>Select the group</u> whose invite data you want to get.\n\n"
     text += "If a group in which you are an administrator doesn't appear here:\n • Either their is not a single invite data\n • Bot is not admin in that group"
     if chats !=[]:
