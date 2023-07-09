@@ -317,7 +317,7 @@ def callback_handler(client, callback_query):
             field_names = ['Serial No.', 'Username', 'First Name', 'Total Invites', 'Regular Invites', 'Fake Invites', 'Left Invites']
             chat = bot.get_chat(chat_id)
             # Generate the file name based on the chat title
-            filename = 'invite-data.csv'
+            filename = os.path.join(os.getcwd(), 'invite-data.csv')
 
             # Write the formatted data to the CSV file
             with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
