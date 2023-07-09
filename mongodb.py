@@ -32,7 +32,7 @@ from pyrogram import Client , filters ,types , enums
 API_ID = '1149607'
 API_HASH = 'd11f615e85605ecc85329c94cf2403b5'
 
-bot = Client("my_test", api_id=API_ID, api_hash=API_HASH, bot_token="6133256899:AAEdpzzSliAoYzXlGXeKMa7ixBBdMvju0HA")
+bot = Client("my_test", api_id=API_ID, api_hash=API_HASH, bot_token="6133256899:AAFdu-7c_Sd8vZ886rW3p_GAgaXgQZKF7rk")
 
 
 bot.start()
@@ -335,7 +335,7 @@ def callback_handler(client, callback_query):
             # ...
             print(e)
             # Inform the user about the error
-            bot.send_message(user_id, f"An error occurred while getting data")
+            bot.send_message(user_id, f"An error occurred while getting data \n\n\n\n\n error_message")
 
 @bot.on_message(filters.command(['role']))
 def roles_given(client,message):
