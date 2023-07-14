@@ -517,10 +517,10 @@ def create_invite_link(client, message):
         invite_link = link.invite_link
         try:
             bot.send_message(
-                user_id, f"Here is your link for group {message.chat.title} \n {link}")
+                user_id, f"Here is your link for group {message.chat.title} \n {invite_link}")
             bot.send_message(chat_id, "Your Personal link is sended to Dm .")
         except Exception as e:
-            bot.send_message(chat_id, f"Here is your link - {link}")
+            bot.send_message(chat_id, f"Here is your link - {invite_link}")
 
         collection.update_one(
             {'chat_id': chat_id, 'user_id': user_id},
