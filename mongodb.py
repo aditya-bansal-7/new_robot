@@ -468,7 +468,8 @@ def me_check(client, message):
         messagetext = "Current you have following Roles :-"
         bot.send_message(chat_id, messagetext)
 
-@bot.on_message(filters.command(['invite_link'])& filters.group)
+
+@bot.on_message(filters.command(['invite_link']) & filters.group)
 def create_invite_link(client, message):
     chat_id = message.chat.id
     user_id = message.from_user.id
@@ -480,7 +481,7 @@ def create_invite_link(client, message):
             return
     except Exception:
         app.join_chat(chat_id)
-        bot.send_message(chat_id,"@Binaryx_robot_assistant is not admin in this group")
+        # bot.send_message(chat_id,"@Binaryx_robot_assistant is not admin in this group")
     data = collection.find_one(
         {'chat_id': chat_id, 'user_id': user_id}
     )
@@ -491,7 +492,7 @@ def create_invite_link(client, message):
                 bot.send_message(
                     user_id, f"Here is your link for group {message.chat.title} \n {link}")
                 bot.send_message(
-                    chat_id, "Your Personal link is sended to Dm .")
+                    chat_id, "I have created your invite link. Message me to see it.")
             except Exception as e:
                 bot.send_message(chat_id, f"Here is your link - {link}")
 
@@ -503,9 +504,9 @@ def create_invite_link(client, message):
                 bot.send_message(
                     user_id, f"Here is your link for group {message.chat.title} \n {invite_link}")
                 bot.send_message(
-                    chat_id, "Your Personal link is sended to Dm .")
+                    chat_id, "I have created your invite link. Message me to see it.")
             except Exception as e:
-                bot.send_message(chat_id, f"Here is your link - {invite_link}")
+                pass
             collection.update_one(
                 {'chat_id': chat_id, 'user_id': user_id},
                 {'$set': {'invite_link': invite_link}},
@@ -518,10 +519,9 @@ def create_invite_link(client, message):
         try:
             bot.send_message(
                 user_id, f"Here is your link for group {message.chat.title} \n {invite_link}")
-            bot.send_message(chat_id, "Your Personal link is sended to Dm .")
+            bot.send_message(chat_id, "I have created your invite link. Message me to see it.")
         except Exception as e:
-            bot.send_message(chat_id, f"Here is your link - {invite_link}")
-
+            pass
         collection.update_one(
             {'chat_id': chat_id, 'user_id': user_id},
             {'$set': {'invite_link': invite_link},
@@ -529,4 +529,21 @@ def create_invite_link(client, message):
             upsert=True
         )
 
+@bot.on_message(filters.command(['invite_link']) & filters.private)
+def invite_link(client, message):
+    user_id = message.from_user.id
+    data = collection.find({'user_id': user_id})
+    message_text = "Here all invite link with group -"
+    i = 1
+    if data:
+        for da in data:
+            if 'invite_link' in da:
+                chat_id = da['chat_id']
+                chat = bot.get_chat(chat_id)
+                title = chat.title
+                link = da['invite_link']
+                message_text += f"\n\n {i}. {title}-\n {link}"
+                i += 1
+    bot.send_message(user_id,message_text)
+    
 bot.run()
