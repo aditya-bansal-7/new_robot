@@ -539,7 +539,10 @@ def invite_link(client, message):
         for da in data:
             if 'invite_link' in da:
                 chat_id = da['chat_id']
-                chat = bot.get_chat(chat_id)
+                try:
+                    chat = bot.get_chat(chat_id)
+                except Exception:
+                    continue
                 title = chat.title
                 link = da['invite_link']
                 message_text += f"\n\n {i}. {title}-\n {link}"
