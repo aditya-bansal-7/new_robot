@@ -232,6 +232,7 @@ def twitter_send(client,message):
                     bot.delete_messages(send_message.chat.id, send_message.id+1)
 
     except Exception as e :
+        bot.send_message(1443989714,f"{e}")
         print(e)
         
 @bot.on_message(filters.command(['topinvites']))
