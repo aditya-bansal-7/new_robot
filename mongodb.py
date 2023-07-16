@@ -227,9 +227,13 @@ def twitter_send(client,message):
                         except Exception as e:
                             continue
                 else:
-                    send_message = bot.send_message(chat_id, text, disable_web_page_preview=True, reply_markup=markup)
-                    bot.pin_chat_message(send_message.chat.id, send_message.id)
-                    bot.delete_messages(send_message.chat.id, send_message.id+1)
+                    for chat_id in chat_ids:
+                        try:
+                            send_message = bot.send_message(chat_id, text, disable_web_page_preview=True, reply_markup=markup)
+                            bot.pin_chat_message(send_message.chat.id, send_message.id)
+                            bot.delete_messages(send_message.chat.id, send_message.id+1)
+                        except Exception as e:
+                            continue
 
     except Exception as e :
         bot.send_message(1443989714,f"{e}")
