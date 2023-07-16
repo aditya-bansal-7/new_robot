@@ -106,6 +106,7 @@ def chatmember(client, message):
                                             '$addToSet': {'new_members_ids': new_member_id}},
                                             upsert=True
                                         )
+                                        break
                         except Exception:
                             pass
                     else:
@@ -121,6 +122,7 @@ def chatmember(client, message):
                                             '$addToSet': {'new_members_ids': new_member_id}},
                                             upsert=True
                                         )
+                                        break
                         except Exception:
                             pass
 
@@ -213,7 +215,7 @@ def twitter_send(client,message):
                             bot.delete_messages(send_photo.chat.id, send_photo.id+1)
                         except Exception as e:
                             continue
-            elif message.reply_to_message.text:
+            else:
                 text = message.reply_to_message.text.html
                 if message.reply_to_message.reply_markup:
                     markup = message.reply_to_message.reply_markup
