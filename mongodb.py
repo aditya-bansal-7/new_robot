@@ -4,6 +4,7 @@ from pymongo import MongoClient
 import time
 import threading
 import csv
+import concurrent.futures
 # Replace <password> with your actual password
 password = '1Gwhiuum22x0hmqf'
 cluster_url = 'mongodb+srv://adibnslboy:' + password + '@bnslboy.02zrow4.mongodb.net/'
@@ -302,34 +303,56 @@ def delete_tracker():
                 continue
         time.sleep(86400)
 
-@bot.on_message(filters.command(['get_data']) & filters.private)
-def get_data(client,message):
 
+@bot.on_message(filters.command(['get_data']) & filters.private)
+def get_data(client, message):
     user_id = message.from_user.id
-    data = collection.find()
-    chats = []
+    chats = set()
     markup = types.InlineKeyboardMarkup(inline_keyboard=[])
+    
+    # Assuming you're using MongoDB as the database
+    data = collection.find({'chat_id': {'$exists': True}})
+    
     for dat in data:
         if 'chat_id' in dat:
             chat_id = dat['chat_id']
             if chat_id not in chats:
-                chats.append(chat_id)
-    for chat_id in chats:
-        try:
-            admins = bot.get_chat_members(chat_id,filter=enums.ChatMembersFilter.ADMINISTRATORS)
-            for admin in admins:
-                if admin.user.id == user_id:
-                    chat = bot.get_chat(chat_id)
-                    markup.inline_keyboard.append([types.InlineKeyboardButton(f'{chat.title}', callback_data=f'data:{chat_id}:{user_id}')])
-        except Exception :
-            continue
+                chats.add(chat_id)
+    
+    # Retrieve chat information in parallel using threads
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = []
+        
+        # Retrieve admins for each chat in parallel
+        for chat_id in chats:
+            futures.append(executor.submit(get_chat_admins, chat_id, user_id))
+        
+        # Process completed futures
+        for future in concurrent.futures.as_completed(futures):
+            result = future.result()
+            
+            if result is not None:
+                chat_id, chat_title = result
+                markup.inline_keyboard.append([types.InlineKeyboardButton(
+                    f'{chat_title}', callback_data=f'data:{chat_id}:{user_id}')])
+
     text = "👉🏻 <u>Select the group</u> whose invite data you want to get.\n\n"
     text += "If a group in which you are an administrator doesn't appear here:\n • Either their is not a single invite data\n • Bot is not admin in that group"
-    if chats !=[]:
-        bot.send_message(message.chat.id,text,reply_markup=markup)
+    if chats != []:
+        bot.send_message(message.chat.id, text, reply_markup=markup)
     else:
-        bot.send_message(message.chat.id,text)
+        bot.send_message(message.chat.id, text)
 
+
+def get_chat_admins(chat_id, user_id):
+    try:
+        admins = bot.get_chat_members(chat_id, filter=enums.ChatMembersFilter.ADMINISTRATORS)
+        for admin in admins:
+            if admin.user.id == user_id:
+                chat = bot.get_chat(chat_id)
+                return chat_id, chat.title
+    except Exception:
+        return None
 
 time_threa = threading.Thread(target=delete_tracker)
 time_threa.start()
