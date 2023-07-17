@@ -111,7 +111,7 @@ def chatmember(client, message):
                             pass
                     else:
                         try:
-                            if invi_count != invi:
+                            
                                 users = app.get_chat_invite_link_joiners(
                                     chat_id, invite_link)
                                 for user in users:
