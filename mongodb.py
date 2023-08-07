@@ -630,7 +630,7 @@ def dice_handler(client, message):
                 score_board[str(message.chat.id)] = []
             if user_id not in score_board[str(message.chat.id)]:
                 score_board[str(message.chat.id)].append(user_id)
-            if len(score_board[str(message.chat.id)]) >= 1:
+            if len(score_board[str(message.chat.id)]) >= chances:
                 send_score_board(message.chat.id)
 
 def send_score_board(chat_id):
