@@ -5,6 +5,11 @@ import time
 import threading
 import csv
 import concurrent.futures
+import uuid
+import threading
+from datetime import datetime
+
+
 # Replace <password> with your actual password
 password = '1Gwhiuum22x0hmqf'
 cluster_url = 'mongodb+srv://adibnslboy:' + password + '@bnslboy.02zrow4.mongodb.net/'
@@ -20,6 +25,9 @@ list_file = os.path.join(os.getcwd(), 'lists.json')
 collection = db['invites']
 
 roles = db['roles']
+
+
+dices = db['dices']
 
 
 
@@ -578,5 +586,260 @@ def invite_link(client, message):
                 message_text += f"\n\n {i}. {title}-\n {link}"
                 i += 1
     bot.send_message(user_id,message_text)
+
+
+
+score_board = {}
+
+@bot.on_message(filters.dice)
+def dice_handler(client, message):
+    data = dices.find_one({'chat_id': message.chat.id, 'is_done': {'$exists': False}})
     
+    if data:
+        emoji = data['emoji']
+        participants = data['participants']
+        if emoji == message.dice.emoji:
+            user_id = str(message.from_user.id)
+            value = message.dice.value
+            chances = data['chances']
+            if data['role'] is not None:
+                role_name = data['role']
+                data2 = roles.find_one({'chat_id': message.chat.id, 'roles': role_name})
+                if data2 is None:
+                    bot.send_message(message.chat.id, f"🚫 You need to have the {role_name} role to participate in this event.", reply_to_message_id=message.id)
+                    return
+            
+            if user_id in participants and participants[user_id]['chances_used'] >= chances:
+                bot.send_message(message.chat.id, "⚠️ You've used up all your chances.", reply_to_message_id=message.id)
+                return
+
+            
+            if user_id in participants:
+                participants[user_id]['chances_used'] += 1
+            else:
+                participants[user_id] = {'chances_used': 1, 'score': 0}
+
+            participants[user_id]['first_name'] = message.from_user.first_name
+            participants[user_id]['username'] = message.from_user.username
+            participants[user_id]['score'] += value
+            dices.update_one(
+                {'chat_id': message.chat.id, 'is_done': {'$exists': False}},
+                {'$set': {'participants': participants}}
+            )
+            if str(message.chat.id) not in score_board:
+                score_board[str(message.chat.id)] = []
+            if user_id not in score_board[str(message.chat.id)]:
+                score_board[str(message.chat.id)].append(user_id)
+            if len(score_board[str(message.chat.id)]) >= 1:
+                send_score_board(message.chat.id)
+
+def send_score_board(chat_id):
+    user_ids = score_board[str(chat_id)]
+    data = dices.find_one({'chat_id': chat_id, 'is_done': {'$exists': False}})
+    
+    message_text = "🎲 Score Update 🎲\n\n"
+    if data:
+        participants = data['participants']
+        for user_id in user_ids:
+            score = participants[user_id]['score']
+            first_name = participants[user_id]['first_name']
+            message_text += f"🔹 <a href='tg://user?id={user_id}'>{first_name}</a> - 分数: {score}\n"
+    message_text += "\nUse /ranks to view the top 10 🏆"
+    bot.send_message(chat_id, message_text)
+    del score_board[str(chat_id)]
+
+@bot.on_message(filters.command(['dices']))
+def dice_handler(client, message):
+    chat_id = message.chat.id
+    user_id = message.from_user.id
+    is_admin = False
+    is_how_to = False
+    try:
+        admins = bot.get_chat_members(chat_id, filter=enums.ChatMembersFilter.ADMINISTRATORS)
+        for admin in admins:
+            user_id2 = admin.user.id
+            if user_id2 == user_id:
+                is_admin = True
+    except Exception as e:
+        bot.send_message(chat_id, "Error in fetching group admin.")
+        print("Error fetching admins:", e)
+        return
+
+    if not is_admin:
+        bot.send_message(chat_id, "You must be an administrator to use this command.", reply_to_message_id=message.id)
+        return
+
+    args = message.text.split()[1:]
+    emoji_list = ["🎲", "🎯", "🏀", "⚽️", "🎳"]
+
+    duration_units = {"d": 86400, "h": 3600, "m": 60, "s": 1}
+    if len(args) >= 4:
+        try:
+            emoji, chances, reward, duration = args[:4]
+            chances = int(chances)
+            reward = reward.replace("_", " ")
+            duration = int(duration[:-1]) * duration_units[duration[-1]]
+            role = None
+        except (ValueError, KeyError, IndexError):
+            bot.send_message(chat_id, "The command format is invalid. Usage: /dices <emoji> <chances> <Reward of Winners> <Duration>")
+            return
+        except Exception:
+            bot.send_message(chat_id, "The command format is invalid. Usage: /dices <emoji> <chances> <Reward of Winners> <Duration>")
+            return
+
+        if emoji not in emoji_list:
+            bot.send_message(chat_id, "Emoji not accepted. Try using one of these 🎲, 🎯, 🏀, ⚽️, 🎳")
+            return
+
+    if len(args) == 5:
+        text = args[4]
+        if text.startswith("role:"):
+            role = text.split(":")[1]
+            data = roles.find_one({'chat_id': chat_id, 'role_name': role})
+            if data:
+                if 'how_to_get' in data:
+                    is_how_to = True
+                    keyboard = types.InlineKeyboardMarkup(
+                        [
+                            [
+                                types.InlineKeyboardButton(
+                                    text=f'如何获得 {role}',
+                                    callback_data=f"giveaway_how_to:{role}:{chat_id}"
+                                )
+                            ]
+                        ]
+                    )
+                else:
+                    bot.send_message(chat_id, f"{role} does not exist in this chat.", reply_to_message_id=message.id)
+                    return
+
+    dice_id = str(uuid.uuid4())
+    time_left = duration
+    time_left_str = f"{time_left // 86400}d:{(time_left % 86400) // 3600}h:{(time_left % 3600) // 60}m:{time_left % 60}s"
+
+    document = {
+        "dice_id": dice_id,
+        "emoji": emoji,
+        "chat_id": chat_id,
+        "reward": reward,
+        "chances": chances,
+        "duration": duration,
+        "role": role,
+        "participants": {},
+        "start_time": datetime.now(),
+        "winners": [],
+        "message_id": message.id + 1
+    }
+    dices.insert_one(document)
+
+    message_text = f"🎉 Emoji Game 🎉 \n\nSend {emoji} emoji to participate in the draw and get points 🍀 \n\nReward - {reward} 🍀\n\n🎁🏆 {chances} chances to participate! 🌟\n\n⏰ Countdown - {time_left_str} 🔥 \n\n🎊 Score high & win big! 🎁💥 Don't miss out! 🎉"
+
+    if role:
+        message_text += f"\n\n🌟 To participate in this Game , you need to have the {role} character"
+
+    if is_how_to:
+        bot.send_message(chat_id, message_text, reply_markup=keyboard)
+    else:
+        bot.send_message(chat_id, message_text)
+    bot.send_dice(chat_id, emoji)
+    bot.delete_messages(chat_id, message.id)
+    time_thread = threading.Thread(target=time_check)
+    time_thread.start()
+
+def end_dice(dice_id):
+    dice = dices.find_one({'dice_id': dice_id})
+    if dice:
+        chat_id = dice["chat_id"]
+        if dice["participants"] == {}:
+            message_text = "No one participated in this game and this game has been cancelled. 🍀"
+            dice_id2 = str(uuid.uuid4())
+            dices.update_one({'dice_id': dice_id}, {'$set': {'dice_id': dice_id2, 'is_done': True}}, upsert=True)
+            bot.send_message(chat_id, message_text)
+            return
+
+        sorted_participants = sorted(dice["participants"].items(), key=lambda x: x[1]['score'], reverse=True)
+        max_chars_per_message = 500  # Telegram character limit for messages
+        message_chunks = []
+        current_chunk = ""
+
+        current_chunk += "<b>The Game has ended 🍀</b><i>nleaderboard</i>\n\n"
+
+        for i, (user_id, score) in enumerate(sorted_participants):
+            first_name = score['first_name']
+            if i == 0:
+                current_chunk += f"🥇 - <a href='tg://user?id={user_id}'>{first_name}</a> - {score['score']}\n"
+            elif i == 1:
+                current_chunk += f"🥈 - <a href='tg://user?id={user_id}'>{first_name}</a> - {score['score']}\n"
+            elif i == 2:
+                current_chunk += f"🥉 - <a href='tg://user?id={user_id}'>{first_name}</a> - {score['score']}\n"
+            else:
+                current_chunk += f"🏅 - <a href='tg://user?id={user_id}'>{first_name}</a> - {score['score']}\n"
+
+            if len(current_chunk) >= max_chars_per_message:
+                message_chunks.append(current_chunk)
+                current_chunk = ""
+
+        if current_chunk:
+            message_chunks.append(current_chunk)
+
+        for chunk in message_chunks:
+            bot.send_message(chat_id, chunk)
+        dice_id2 = str(uuid.uuid4())
+        dices.update_one({'dice_id': dice_id}, {'$set': {'dice_id': dice_id2, 'is_done': True}}, upsert=True)
+       
+@bot.on_message(filters.command(['ranks']))
+def ranks_sender(client,message):
+    data = dices.find_one({'chat_id': message.chat.id, 'is_done': {'$exists': False}})
+    
+    if data:
+        if data["participants"] == {}:
+            message_text = "No users are involved."
+            bot.send_message(message.chat.id, message_text)
+            return
+
+        sorted_participants = sorted(data["participants"].items(), key=lambda x: x[1]['score'], reverse=True)
+
+        current_chunk = "🏆 Top 10 Leaderboard - \n\n"
+
+        for i, (user_id, score) in enumerate(sorted_participants):
+            first_name = score['first_name']
+            if i == 0:
+                current_chunk += f"🥇 - <a href='tg://user?id={user_id}'>{first_name}</a> - {score['score']}\n"
+            elif i == 1:
+                current_chunk += f"🥈 - <a href='tg://user?id={user_id}'>{first_name}</a> - {score['score']}\n"
+            elif i == 2:
+                current_chunk += f"🥉 - <a href='tg://user?id={user_id}'>{first_name}</a> - {score['score']}\n"
+            else:
+                current_chunk += f"🏅 - <a href='tg://user?id={user_id}'>{first_name}</a> - {score['score']}\n"
+            
+            if i == 9:
+                break
+    
+        bot.send_message(message.chat.id, current_chunk)
+    else:
+        bot.send_message(message.chat.id, "No ongoing giveaway found.")
+
+lock = threading.Lock()
+
+def time_check():
+    with lock:
+        time.sleep(10)
+        while True:
+            dicess = dices.find()
+            i = 1
+            for giveaway in dicess:
+                if 'is_done' in giveaway:
+                    continue
+                giveaway["duration"] -= 10
+                time_left = giveaway["duration"]
+                dice_id = giveaway['dice_id']
+                i += 1
+                dices.update_one({'dice_id': dice_id}, {'$set': {'duration': giveaway["duration"]}}) 
+                if time_left <= 0:
+                    end_dice(dice_id)
+            if i == 1:
+                return False
+            time.sleep(10)
+
+
 bot.run()
