@@ -22,14 +22,15 @@ db = client['main']
 
 list_file = os.path.join(os.getcwd(), 'lists.json')
 
+giveaways = db['giveaways']
+
 collection = db['invites']
 
 roles = db['roles']
 
+owners = db['admins']
 
 dices = db['dices']
-
-
 
 try:
     with open(list_file, 'r') as f:
@@ -44,217 +45,293 @@ API_HASH = 'd11f615e85605ecc85329c94cf2403b5'
 
 bot = Client("my_test", api_id=API_ID, api_hash=API_HASH, bot_token="6133256899:AAFdu-7c_Sd8vZ886rW3p_GAgaXgQZKF7rk")
 
-app = Client("assistant", api_id=API_ID, api_hash=API_HASH)
 
-app.start()
-
-app.send_message(1443989714, "I am alive2")
-bot.start()
-bot.send_message(1443989714, "I am alive2")
-bot.stop()
-
-def alive_check():
-    time.sleep(10)
-    while True:
-        bot.send_message(1443989714, "I am alive2")
-        time.sleep(600)
-
-
-time_threa = threading.Thread(target=alive_check)
-time_threa.start()
-
-@bot.on_message(filters.new_chat_members)
-def chatmember(client, message):
-    new_user = message.new_chat_members
-    for user in new_user:
-        new_member_id = user.id
-        new_member_username = user.username
-        new_member_firstname = user.first_name
-        chat_id = message.chat.id
-        user_id = message.from_user.id
-        if user_id != new_member_id:
-            status = str(user.status)
-            statuses = ["UserStatus.LAST_WEEK", "UserStatus.ONLINE",
-                        "UserStatus.OFFLINE", "UserStatus.RECENTLY"]
-            if status in [str(stat) for stat in statuses]:
-                collection.update_one(
-                    {'chat_id': chat_id, 'user_id': user_id},
-                    {'$inc': {'total_count': 1, 'regular_count': 1, 'left_count': 0, 'fake_count': 0, 'g_count': 1},
-                     '$addToSet': {'new_members_ids': new_member_id, 'new_member_username': new_member_username, 'new_member_firstname': new_member_firstname}},
-                    upsert=True
-                )
+@bot.on_message(filters.command(['start']) & filters.group)
+def start_for_group(client , message):
+    try:
+        admins = bot.get_chat_members(message.chat.id,filter=enums.ChatMembersFilter.ADMINISTRATORS)
+        for admin in admins:
+            user_id = admin.user.id
+            list = owners.find_one({'chat_id': message.chat.id})
+            if list:
+                adminlist = list['admins']
+                if user_id not in adminlist:
+                    owners.update_one(
+                        {'chat_id': message.chat.id},
+                        {'$addToSet':{'admins': user_id},'$set':{'chat_title': message.chat.title}},upsert=True
+                    )
             else:
-                collection.update_one(
-                    {'chat_id': chat_id, 'user_id': user_id},
-                    {'$inc': {'total_count': 1, 'fake_count': 1, 'regular_count': 0, 'left_count': 0, 'g_count': 0},
-                     '$addToSet': {'fake_members_ids': new_member_id, 'fake_member_firstname': new_member_firstname, 'fake_member_username': new_member_username}},
-                    upsert=True
-                )
-        else:
-            links = collection.find(
-                {'chat_id': chat_id}
-            )
-            for link in links:
-                if 'invite_link' in link:
-                    invite_link = link['invite_link']
-                    user_id = link['user_id']
-                    if 'invite_count' in link:
-                        invi_count = link['invite_count']
-                        try:
-                            invi = app.get_chat_invite_link_joiners_count(
-                                chat_id, invite_link)
+                owners.update_one(
+                        {'chat_id': message.chat.id},
+                        {'$addToSet':{'admins': user_id}},upsert=True
+                    )
+    except Exception:
+        pass
 
-                            if invi_count != invi:
-                                users = app.get_chat_invite_link_joiners(
-                                    chat_id, invite_link)
-                                for user in users:
-                                    if user.user.id == new_member_id:
-                                        collection.update_one(
-                                            {'chat_id': chat_id, 'user_id': user_id},
-                                            {'$inc': {'total_count': 1, 'regular_count': 1, 'left_count': 0, 'fake_count': 0, 'invite_count': 1, 'g_count': 1},
-                                            '$addToSet': {'new_members_ids': new_member_id}},
-                                            upsert=True
-                                        )
-                                        break
-                        except Exception:
-                            pass
-                    else:
-                        try:
-                            
-                                users = app.get_chat_invite_link_joiners(
-                                    chat_id, invite_link)
-                                for user in users:
-                                    if user.user.id == new_member_id:
-                                        collection.update_one(
-                                            {'chat_id': chat_id, 'user_id': user_id},
-                                            {'$inc': {'total_count': 1, 'regular_count': 1, 'left_count': 0, 'fake_count': 0, 'invite_count': 1, 'g_count': 1},
-                                            '$addToSet': {'new_members_ids': new_member_id}},
-                                            upsert=True
-                                        )
-                                        break
-                        except Exception:
-                            pass
+@bot.on_message(filters.command(['start']) & filters.private)
+def start_for_private(client, message):
+    if message.text == "/start":
+        return
+    else:
+        giveaway_id = message.text.split(" ")[1]
+        print(giveaway_id)
+        giveaway = giveaways.find_one({'giveaway_id':giveaway_id})
+        if giveaway is None:
+            bot.send_message(message.from_user.id, "Sorry, this giveaway is no longer active.")
+            return
+        if giveaway:
+            user_id = message.from_user.id
+            giveaway = giveaways.find_one({'giveaway_id':giveaway_id})
+            chat_id = giveaway['chat_id']
+            role = giveaway["role"]
+            if role == None:
+                pass
+            else:
+                role_user = roles.find_one({'chat_id':chat_id,'user_id':user_id,'roles':role})
+                if role_user is None:
+                    bot.send_message(user_id, f"To participate in this draw, you must have the {role} role.")
+                    return
+            if user_id in giveaway["participants"]:
+                bot.send_message(user_id, "You have already participated in this giveaway.")
+                return
+            giveaway["participants"].append(user_id)
+            giveaways.update_one({"giveaway_id": giveaway_id}, {"$set": {"participants": giveaway["participants"],'is_edit':True}})
+            bot.send_message(user_id, "You have successfully participated in the giveaway.")
 
-        
+@bot.on_message(filters.command(['settings']) & filters.private)
+def create_role(client,message):
+    is_markup = False
+    list = owners.find({'admins':message.from_user.id})
+    #Select a Chat in which you want to create a role --
+    msg_txt = """👉🏻 Select the group whose invitation data you want to get.
 
-                
+If your group as an administrator does not appear here:
+ • Send /reload in the group and try again
+ • The bot is not an administrator in this group"""
+    markup = types.InlineKeyboardMarkup(inline_keyboard=[])
+    i = 1
+    if list:
+        for list2 in list:
+            chat = list2['chat_id']
+            if 'chat_title' in list2:
+                title = list2['chat_title']
+            else:
+                try:
+                    details = bot.get_chat(chat)
+                    title = details.title
+                except Exception:
+                    continue
+            markup.inline_keyboard.append([types.InlineKeyboardButton(f"{title}",callback_data=f"chat_group:{chat}")])
+            is_markup = True
+            if i == 7 :
+                markup.inline_keyboard.append([types.InlineKeyboardButton(f"Next Page ➡️",callback_data=f"nxtPage:{i}")])
+                break
+    if is_markup:
+        bot.send_message(message.chat.id,msg_txt,reply_markup=markup)
+    else:
+        bot.send_message(message.chat.id,msg_txt)
+
+@bot.on_message(filters.command(['reload']) & filters.group)
+def start_for_group(client , message):
+    try:
+        admins = bot.get_chat_members(message.chat.id,filter=enums.ChatMembersFilter.ADMINISTRATORS)
+        for admin in admins:
+            user_id = admin.user.id
+            list = owners.find_one({'chat_id': message.chat.id})
+            if list:
+                adminlist = list['admins']
+                if user_id not in adminlist:
+                    owners.update_one(
+                        {'chat_id': message.chat.id},
+                        {'$addToSet':{'admins': user_id},'$set':{'chat_title': message.chat.title}},upsert=True
+                    )
+            else:
+                owners.update_one(
+                        {'chat_id': message.chat.id},
+                        {'$addToSet':{'admins': user_id}},upsert=True
+                    )
+    except Exception:
+        pass
+    msg_text = '✅ Bot updated\n✅ The list of administrators has been updated'
+    bot.send_message(message.chat.id,msg_text)
+
 @bot.on_message(filters.left_chat_member)
-def left_member(client,message):
+def left_member(client, message):
     chat_id = message.chat.id
     left_member_id = message.left_chat_member.id
     inviter = collection.find_one(
-        {'chat_id': chat_id, 'new_members_ids': left_member_id}
-    )
-    inviter2 = collection.find_one(
-        {'chat_id': chat_id , 'fake_members_ids': left_member_id}
+        {'chat_id': chat_id, 'users': left_member_id}
     )
     if inviter:
         inviter_id = inviter['user_id']
+        collection.update_one(
+            {'chat_id': chat_id, 'user_id': inviter_id},
+            {'$inc': {'regular_count': -1, 'left_count': 1}},
+        )
 
-        # Decrement the invite count for the inviter
-        collection.update_one(
-            {'chat_id': chat_id, 'user_id': inviter_id},
-            {'$inc': {'regular_count': -1 ,'left_count': 1}},
-        )
-    elif inviter2:
-        inviter_id = inviter['user_id']
-        collection.update_one(
-            {'chat_id': chat_id, 'user_id': inviter_id},
-            {'$inc': {'regular_count': 0 ,'left_count': 1}},
-        )
+def role_giver(chat_id , user_id):
+    data = roles.find({"chat_id":chat_id})
+    is_give_role = False
+    for da in data:
+        if 'role_name' in da:
+            role_name = da['role_name']
+            if 'is_auto_invite' in da and da['is_auto_invite'] == True:
+                
+                count = da['invite_count']
+                da2 = collection.find_one({'chat_id':chat_id,'user_id':user_id})
+                if da2:
+                    invite_count = da2['regular_count']
+                    if invite_count >= count :
+                        is_give_role = True
+                    else:
+                        is_give_role = False
+                else:
+                    is_give_role = False
+            # if 'is_auto_message' in da and da['is_auto_message'] == True:
+            #     count = da['message_count']
+            #     da2 = messages.find_one({'chat_id':chat_id,'user_id':user_id})
+            #     if da2:
+            #         messages_count = da2['msg_count']
+            #         if messages_count >= count:
+            #             is_give_role = True
+            #         else:
+            #             is_give_role = False
+            #     else:
+            #         is_give_role = False
+            if is_give_role == True:
+                data = roles.find_one({'chat_id': chat_id, 'user_id': user_id,'roles': role_name})
+                if data:
+                    return
+                usser = bot.get_users(user_id)
+                usser_name = usser.username
+                roles.update_one({'chat_id': chat_id, 'user_id': user_id}, {'$addToSet': {'roles': role_name},'$set': {'first_name': usser_name}}, upsert=True)
+                roles.update_one({'chat_id':chat_id,'role_name':role_name},
+                             {'$inc':{'count':1}},upsert=True)
+                is_give_role = False
+              
+@bot.on_chat_member_updated()
+def members(client, message):
+    chat_id = message.chat.id
+    
+    if message.invite_link:
+        invite_link = message.invite_link.invite_link
+        data = collection.find_one({'chat_id': chat_id, 'invite_link': invite_link})
+        if data:
+            user_id = data['user_id']
+            update_invites(chat_id, user_id, message.new_chat_member.user, "invite")
+
+@bot.on_message(filters.new_chat_members)
+def chatmember(client, message):
+    chat_id = message.chat.id
+    user_id = message.from_user.id
+    new_members = message.new_chat_members
+
+    for new_member in new_members:
+        if user_id != new_member.id:
+            update_invites(chat_id, user_id, new_member, "add")
+
+def update_invites(chat_id, user_id, new_member, point):
+    current_time = datetime.now()
+    da = collection.find_one({'chat_id': chat_id, 'user_id': user_id})
+    if da is None:
+        da = {}
+    users = da.get('users', {})
+    try:
+        us = bot.get_users(user_id)
+        username = us.username
+        first_name = us.first_name
+    except Exception:
+        pass
+    
+    users[str(new_member.id)] = {
+        'username': new_member.username,
+        'first_name': new_member.first_name,
+        'timestamp': current_time
+    }
+
+    status = str(new_member.status)
+
+    common_update_data = {
+        '$set': {'users': users,'timestamp':current_time}
+    }
+    if first_name is not None:
+        common_update_data['$set']['username'] = username
+        common_update_data['$set']['first_name'] = first_name
+    if status in ["UserStatus.LAST_WEEK", "UserStatus.ONLINE", "UserStatus.OFFLINE", "UserStatus.RECENTLY"]:
+        specific_update_data = {
+            '$inc': {'total_count': 1, 'regular_count': 1, 'left_count': 0, 'fake_count': 0, 'g_count': 1},
+            '$set': {'users': users}
+        }
+        if point == "invite":
+            daa = owners.find_one({'chat_id':chat_id})
+            if daa and 'send_msg' in daa and daa['send_msg'] is True:
+                bot.send_message(chat_id,f"<a href='tg://user?id={user_id}'>{first_name}</a> invites <a href='tg://user?id={new_member.id}'>{new_member.first_name}</a>")
+            specific_update_data['$inc']['invi_count'] = 1
+        update_data = {**specific_update_data, **common_update_data}
+        role_giver(chat_id, user_id)
+    else:
+        update_data = {
+            '$inc': {'total_count': 1, 'fake_count': 1, 'regular_count': 0, 'left_count': 0, 'g_count': 0},
+            '$set': {'users': users}
+        }
+
+    collection.update_one(
+        {'chat_id': chat_id, 'user_id': user_id},
+        update_data,
+        upsert=True
+    )
+    if point == "add" or point == "invite":
+        owners.update_one({'chat_id': chat_id}, {'$inc': {'user_count': 1, f'{point}_count': 1}})
 
 @bot.on_message(filters.command(['invites']))
-def invites_finder(client,message):
+def invites_finder(client, message):
     chat_id = message.chat.id
-    if message.text == "/invites" or message.text == "/invites@Binaryx_robot":
+    if len(message.text) == 8:
         user_id = message.from_user.id
         first_name = message.from_user.first_name
         inviter = collection.find_one(
-        {'chat_id': chat_id, 'user_id': user_id})
+            {'chat_id': chat_id, 'user_id': user_id})
         if inviter:
+            invi_count = inviter.get('invi_count',0)
             t_count = inviter['total_count']
             r_count = inviter['regular_count']
             f_count = inviter['fake_count']
             l_count = inviter['left_count']
-            text = f"User <a href='tg://user?id={user_id}'>{first_name}</a> currently have \n<b>{r_count}</b> invites. (<b>{t_count}</b> Regular,<b> {l_count}</b> left,<b> {f_count}</b> fake)"
+            text = f"User <a href='tg://user?id={user_id}'>{first_name}</a> currently have \n<b>{r_count}</b> invites. (<b>{t_count}</b> Regular,<b> {l_count}</b> left,<b> {f_count}</b> fake,{invi_count} link)"
         else:
             text = f"No data found for user <a href='tg://user?id={user_id}'>{first_name}</a>"
-        bot.send_message(chat_id,text)
+        bot.send_message(chat_id, text)
     else:
         args = message.text.split()[1:]
         text = "Here the requested Data\n\n"
+
         for user in args:
-            member = bot.get_chat(user)
+            try:
+                member = bot.get_chat(user)
+            except Exception:
+                continue
             user_id = member.id
             first_name = member.first_name
             inviter = collection.find_one(
-        {'chat_id': chat_id, 'user_id': user_id})
+                {'chat_id': chat_id, 'user_id': user_id})
             if inviter:
+                invi_count = inviter.get('invi_count',0)
                 t_count = inviter['total_count']
                 r_count = inviter['regular_count']
                 f_count = inviter['fake_count']
                 l_count = inviter['left_count']
-                text += f"User <a href='tg://user?id={user_id}'>{first_name}</a> currently have \n<b>{r_count}</b> invites. (<b>{t_count}</b> Regular,<b> {l_count}</b> left,<b> {f_count}</b> fake)\n\n"
+                text += f"User <a href='tg://user?id={user_id}'>{first_name}</a> currently have \n<b>{r_count}</b> invites. (<b>{t_count}</b> Regular,<b> {l_count}</b> left,<b> {f_count}</b> fake,{invi_count} link)\n\n"
             else:
                 text += f"No data found for user <a href='tg://user?id={user_id}'>{first_name}</a>\n\n"
-        bot.send_message(chat_id,text)
+        bot.send_message(chat_id, text)
 
-@bot.on_message(filters.command(['twisend']))
-def twitter_send(client,message):
-    try:
-        chat_ids = persons['twitter']
-        if message.reply_to_message :
-            if message.reply_to_message.photo:
-                file_id = message.reply_to_message.photo.file_id
-                caption = message.reply_to_message.caption.html
-                if message.reply_to_message.reply_markup:
-                    markup = message.reply_to_message.reply_markup
-                    for chat_id in chat_ids:
-                        try:
-                            send_photo = bot.send_photo(chat_id, file_id, caption=caption, reply_markup=markup)
-                            bot.pin_chat_message(send_photo.chat.id, send_photo.id, True)
-                            bot.delete_messages(send_photo.chat.id, send_photo.id+1)
-                        except Exception as e:
-                            continue
-                else:
-                    for chat_id in chat_ids:
-                        try:
-                            send_photo = bot.send_photo(chat_id, file_id, caption=caption)
-                            bot.pin_chat_message(send_photo.chat.id, send_photo.id, True)
-                            bot.delete_messages(send_photo.chat.id, send_photo.id+1)
-                        except Exception as e:
-                            continue
-            else:
-                text = message.reply_to_message.text.html
-                if message.reply_to_message.reply_markup:
-                    markup = message.reply_to_message.reply_markup
-                    for chat_id in chat_ids:
-                        try:
-                            send_message = bot.send_message(chat_id, text, disable_web_page_preview=True, reply_markup=markup)
-                            bot.pin_chat_message(send_message.chat.id, send_message.id)
-                            bot.delete_messages(send_message.chat.id, send_message.id+1)
-                        except Exception as e:
-                            continue
-                else:
-                    for chat_id in chat_ids:
-                        try:
-                            send_message = bot.send_message(chat_id, text, disable_web_page_preview=True)
-                            bot.pin_chat_message(send_message.chat.id, send_message.id)
-                            bot.delete_messages(send_message.chat.id, send_message.id+1)
-                        except Exception as e:
-                            continue
 
-    except Exception as e :
-        bot.send_message(1443989714,f"{e}")
-        print(e)
-        
 @bot.on_message(filters.command(['topinvites']))
-def top_invites(client,message):
+def top_invites(client, message):
     chat_id = message.chat.id
-
     top_invites = collection.find(
-            {"chat_id": chat_id}
-        ).sort("regular_count", -1).limit(10)
+        {"chat_id": chat_id}
+    ).sort("regular_count", -1).limit(10)
     response = "Top 10 Invites:\n\n"
     for index, invite in enumerate(top_invites):
         user_id = invite["user_id"]
@@ -268,7 +345,46 @@ def top_invites(client,message):
         response += f"{index + 1}. <a href='tg://user?id={user_id}'>{first_name} {last_name}</a> , <b>{r_count}</b> Invites. (<b>{t_count}</b> Regular,<b> {l_count}</b> left,<b> {f_count}</b> fake)\n"
     if response == "Top 10 Invites:\n\n":
         response = "No Data Found"
-    bot.send_message(chat_id,response)
+
+    bot.send_message(chat_id, response)
+
+@bot.on_message(filters.command(['link']) & filters.group)
+def create_invite_link(client, message):
+    chat_id = message.chat.id
+    bot_member = bot.get_chat_member(chat_id, 6133256899)
+    if bot_member.privileges.can_invite_users is False:
+        bot.send_message(chat_id,"❌ Insufficient permissions for the robot, please grant at least the following admin permissions:\n- Invite members via link")
+        return
+    
+    user_id = message.from_user.id
+    first_name = message.from_user.first_name
+    data = collection.find_one({'chat_id': chat_id, 'user_id': user_id,'invite_link': {'$exists': True}})
+
+    if data:
+            link = data['invite_link']
+            invite_count = data['invi_count']
+            
+            message_text = f"""🔗 <a href='tg://user?id={user_id}'>{first_name}</a> Your exclusive link:
+<code>{link}</code> (Click to copy)
+
+👉 Current Total Invitations {invite_count} Person ."""
+            bot.send_message(chat_id, message_text)
+    else:
+            link = bot.create_chat_invite_link(
+                chat_id, f"{first_name} by @Binaryx_Robot")
+            invite_link = link.invite_link
+            message_text = f"""🔗 <a href='tg://user?id={user_id}'>{first_name}</a> Your exclusive link:
+<code>{invite_link}</code> (Click to copy)
+
+👉 Current Total Invitations 0 Person ."""
+            bot.send_message(chat_id, message_text)
+            collection.update_one(
+                {'chat_id': chat_id, 'user_id': user_id},
+                {'$set': {'invite_link': invite_link,'invi_count':0}},
+                upsert=True
+            )
+            owners.update_one({'chat_id':chat_id},{'$inc':{'link_count':1}},upsert=True)
+
 
 def delete_tracker():
     while True:
@@ -289,7 +405,7 @@ def delete_tracker():
                             {'chat_id': chat_id, 'new_members_ids': left_member_id}
                         )
                         inviter2 = collection.find_one(
-                            {'chat_id': chat_id , 'fake_members_ids': left_member_id}
+                            {'chat_id': chat_id, 'fake_members_ids': left_member_id}
                         )
                         if inviter:
                             inviter_id = inviter['user_id']
@@ -297,23 +413,25 @@ def delete_tracker():
                             # Decrement the invite count for the inviter
                             collection.update_one(
                                 {'chat_id': chat_id, 'user_id': inviter_id},
-                                {'$inc': {'regular_count': -1 ,'left_count': 1}},
+                                {'$inc': {'regular_count': -1, 'left_count': 1}},
                                 {'$pull': {'new_members_ids': left_member_id}}
                             )
                         elif inviter2:
                             inviter_id = inviter['user_id']
                             collection.update_one(
                                 {'chat_id': chat_id, 'user_id': inviter_id},
-                                {'$inc': {'regular_count': 0 ,'left_count': 1}},
+                                {'$inc': {'regular_count': 0, 'left_count': 1}},
                                 {'$pull': {'fake_members_ids': left_member_id}}
                             )
             except Exception:
                 continue
         time.sleep(86400)
 
-
 @bot.on_message(filters.command(['get_data']) & filters.private)
 def get_data(client, message):
+    if message:
+        bot.send_message(message.chat.id,"Currently on Developing")
+        return
     user_id = message.from_user.id
     chats = set()
     markup = types.InlineKeyboardMarkup(inline_keyboard=[])
@@ -351,7 +469,6 @@ def get_data(client, message):
     else:
         bot.send_message(message.chat.id, text)
 
-
 def get_chat_admins(chat_id, user_id):
     try:
         admins = bot.get_chat_members(chat_id, filter=enums.ChatMembersFilter.ADMINISTRATORS)
@@ -361,10 +478,9 @@ def get_chat_admins(chat_id, user_id):
                 return chat_id, chat.title
     except Exception:
         return None
-
-time_threa = threading.Thread(target=delete_tracker)
-time_threa.start()
-
+    
+# time_threa = threading.Thread(target=delete_tracker)
+# time_threa.start()
 
 @bot.on_callback_query()
 def callback_handler(client, callback_query):
@@ -373,7 +489,8 @@ def callback_handler(client, callback_query):
         chat_id = int(call.data.split(":")[1])
         user_id = int(call.data.split(":")[2])
         try:
-            data = collection.find({'chat_id': chat_id}).sort("regular_count", -1)
+            data = collection.find({'chat_id': chat_id}).sort(
+                "regular_count", -1)
             formatted_data = []
             serial_number = 1
             for da in data:
@@ -402,10 +519,11 @@ def callback_handler(client, callback_query):
                 formatted_data.append(formatted_entry)
 
             # Define the field names for the CSV file
-            field_names = ['Serial No.', 'Username', 'First Name', 'Total Invites', 'Regular Invites', 'Fake Invites', 'Left Invites']
+            field_names = ['Serial No.', 'Username', 'First Name',
+                           'Total Invites', 'Regular Invites', 'Fake Invites', 'Left Invites']
             chat = bot.get_chat(chat_id)
             # Generate the file name based on the chat title
-            filename = os.path.join(os.getcwd(), 'invite-data.csv')
+            filename = 'invite-data.csv'
 
             # Write the formatted data to the CSV file
             with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
@@ -415,21 +533,19 @@ def callback_handler(client, callback_query):
 
             # Send the CSV file to the user
             bot.send_document(user_id, filename)
-            bot.send_message(user_id,f"Invite data for {chat.title}")
+            bot.send_message(user_id, f"Invite data for {chat.title}")
         except Exception as e:
             # Handle the exception
             error_message = str(e)
-            # Log the error or take any other necessary actions
-            # ...
             print(e)
             # Inform the user about the error
-            bot.send_message(user_id, f"An error occurred while getting data \n\n\n\n\n {error_message}")
+            bot.send_message("@bnsl_boy", f"An error occurred while getting data {error_message}")
+    elif call.data.startswith(("test:")):
+        bot.answer_callback_query(call.id,"working on it")
 
 @bot.on_message(filters.command(['role']))
 def roles_given(client, message):
-    user_id = message.from_user.id
     chat_id = message.chat.id
-    first_name = message.from_user.first_name
     reply = message.reply_to_message
     if reply:
         user = reply.from_user.id
@@ -466,7 +582,25 @@ def roles_given(client, message):
         message_test = "User -  "
         for user in username:
             if not user.startswith("@"):
-                bot.send_message(chat_id,f"Error : {user} does not have a username")
+                for entity in message.entities:
+                    if str(entity.type) == "MessageEntityType.TEXT_MENTION":
+                        try:
+                            name = entity.user.first_name
+                            if name == user:
+                                usser_id = entity.user.id
+                                find = roles.find_one(
+                                            {'chat_id': chat_id, 'user_id': usser_id, 'roles': role_name})
+                                if find:
+                                    bot.send_message(
+                                        chat_id, f"{usser_name} already have {role_name} role", reply_to_message_id=message.id)
+                                    continue
+
+                                message_test += f"{user}, "
+                                roles.update_one({'chat_id': chat_id, 'user_id': usser_id},
+                                                {'$addToSet': {'roles': role_name},
+                                                '$set': {'first_name': usser_name}}, upsert=True)
+                        except Exception:
+                            continue
                 continue
             usser = bot.get_chat(user)
             usser_id = usser.id
@@ -488,106 +622,6 @@ def roles_given(client, message):
             pass
         else:
             bot.send_message(chat_id,message_test)
-
-
-@bot.on_message(filters.command(['me']) & filters.group)
-def me_check(client, message):
-    user_id = message.from_user.id
-    chat_id = message.chat.id
-    data = roles.find_one({'user_id': user_id, 'chat_id': chat_id})
-
-    if data:
-        messagetext = "Current you have following Roles :-"
-        rolees = data['roles']
-        for role in rolees:
-            messagetext += f"\n • {role}"
-        bot.send_message(chat_id, messagetext)
-    else:
-        messagetext = "Current you have following Roles :-"
-        bot.send_message(chat_id, messagetext)
-
-
-@bot.on_message(filters.command(['invite_link']) & filters.group)
-def create_invite_link(client, message):
-    chat_id = message.chat.id
-    user_id = message.from_user.id
-
-    try:
-        check = bot.get_chat_member(chat_id,5033228818)
-        if not str(check.status) == "ChatMemberStatus.ADMINISTRATOR":
-            bot.send_message(chat_id,"@Binaryx_robot_assistant is not admin in this group")
-            return
-    except Exception:
-        app.join_chat(chat_id)
-        # bot.send_message(chat_id,"@Binaryx_robot_assistant is not admin in this group")
-    data = collection.find_one(
-        {'chat_id': chat_id, 'user_id': user_id}
-    )
-    if data:
-        if 'invite_link' in data:
-            link = data['invite_link']
-            try:
-                bot.send_message(
-                    user_id, f"Here is your link for group {message.chat.title} \n {link}")
-                bot.send_message(
-                    chat_id, "I have created your invite link. Message me to see it.")
-            except Exception as e:
-                bot.send_message(chat_id, f"Here is your link - {link}")
-
-        else:
-            link = app.create_chat_invite_link(
-                chat_id, f"{message.from_user.first_name} by @Binaryx_Robot")
-            invite_link = link.invite_link
-            try:
-                bot.send_message(
-                    user_id, f"Here is your link for group {message.chat.title} \n {invite_link}")
-                bot.send_message(
-                    chat_id, "I have created your invite link. Message me to see it.")
-            except Exception as e:
-                pass
-            collection.update_one(
-                {'chat_id': chat_id, 'user_id': user_id},
-                {'$set': {'invite_link': invite_link}},
-                upsert=True
-            )
-    else:
-        link = app.create_chat_invite_link(
-            chat_id, f"{message.from_user.first_name} by @Binaryx_Robot")
-        invite_link = link.invite_link
-        try:
-            bot.send_message(
-                user_id, f"Here is your link for group {message.chat.title} \n {invite_link}")
-            bot.send_message(chat_id, "I have created your invite link. Message me to see it.")
-        except Exception as e:
-            pass
-        collection.update_one(
-            {'chat_id': chat_id, 'user_id': user_id},
-            {'$set': {'invite_link': invite_link},
-             '$inc': {'total_count': 0, 'regular_count': 0, 'left_count': 0, 'fake_count': 0}},
-            upsert=True
-        )
-
-@bot.on_message(filters.command(['invite_link']) & filters.private)
-def invite_link(client, message):
-    user_id = message.from_user.id
-    data = collection.find({'user_id': user_id})
-    message_text = "Here all invite link with group -"
-    i = 1
-    if data:
-        for da in data:
-            if 'invite_link' in da:
-                chat_id = da['chat_id']
-                try:
-                    chat = bot.get_chat(chat_id)
-                except Exception:
-                    continue
-                title = chat.title
-                link = da['invite_link']
-                message_text += f"\n\n {i}. {title}-\n {link}"
-                i += 1
-    bot.send_message(user_id,message_text)
-
-
 
 score_board = {}
 
@@ -703,7 +737,7 @@ def dice_handler(client, message):
                         [
                             [
                                 types.InlineKeyboardButton(
-                                    text=f'如何获得 {role}',
+                                    text=f'How to get {role}',
                                     callback_data=f"giveaway_how_to:{role}:{chat_id}"
                                 )
                             ]
@@ -732,7 +766,7 @@ def dice_handler(client, message):
     }
     dices.insert_one(document)
 
-    message_text = f"🎉 Emoji Game 🎉 \n\nSend {emoji} emoji to participate in the draw and get points 🍀 \n\nReward - {reward} 🍀\n\n🎁🏆 {chances} chances to participate! 🌟\n\n⏰ Countdown - {time_left_str} 🔥 \n\n🎊 Score high & win big! 🎁💥 Don't miss out! 🎉"
+    message_text = f"🎉 Emoji Lucky Draw 🎉\n\n🍀 Participate in the lottery by sending the {emoji} emoji and earn points 🍀\n\n🎁 Reward - {reward} \n\n🏆 Chances - {chances} 🌟\n\n⏰ Ends in - {time_left_str} 🔥\n\n🎊 Achieve a high score & win big prizes! 🎁"
 
     if role:
         message_text += f"\n\n🌟 To participate in this Game , you need to have the {role} character"
@@ -790,7 +824,6 @@ def end_dice(dice_id):
 @bot.on_message(filters.command(['ranks']))
 def ranks_sender(client,message):
     data = dices.find_one({'chat_id': message.chat.id, 'is_done': {'$exists': False}})
-    
     if data:
         if data["participants"] == {}:
             message_text = "No users are involved."
@@ -841,5 +874,20 @@ def time_check():
                 return False
             time.sleep(10)
 
+@bot.on_message(filters.command(['me']) & filters.group)
+def me_check(client, message):
+    user_id = message.from_user.id
+    chat_id = message.chat.id
+    data = roles.find_one({'user_id': user_id, 'chat_id': chat_id})
+
+    if data:
+        messagetext = "Current you have following Roles :-"
+        rolees = data['roles']
+        for role in rolees:
+            messagetext += f"\n • {role}"
+        bot.send_message(chat_id, messagetext)
+    else:
+        messagetext = "Current you have following Roles :-"
+        bot.send_message(chat_id, messagetext)
 
 bot.run()
