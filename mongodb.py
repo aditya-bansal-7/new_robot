@@ -212,7 +212,11 @@ def role_giver(chat_id , user_id):
 @bot.on_chat_member_updated()
 def members(client, message):
     chat_id = message.chat.id
-    
+    abc = owners.find_one({'chat_id':chat_id})
+    if 'link_msg' in abc and abc['link_msg'] is True:
+        pass
+    else:
+        return
     if message.invite_link:
         invite_link = message.invite_link.invite_link
         data = collection.find_one({'chat_id': chat_id, 'invite_link': invite_link})
@@ -223,6 +227,11 @@ def members(client, message):
 @bot.on_message(filters.new_chat_members)
 def chatmember(client, message):
     chat_id = message.chat.id
+    abc = owners.find_one({'chat_id':chat_id})
+    if 'add_msg' in abc and abc['add_msg'] is True:
+        pass
+    else:
+        return
     user_id = message.from_user.id
     new_members = message.new_chat_members
 
@@ -351,6 +360,12 @@ def top_invites(client, message):
 @bot.on_message(filters.command(['link']) & filters.group)
 def create_invite_link(client, message):
     chat_id = message.chat.id
+    abc = owners.find_one({'chat_id':chat_id})
+    if 'link_msg' in abc and abc['link_msg'] is True:
+        pass
+    else:
+        bot.send_message(chat_id,"Hey there! It looks like the admin hasn't set up the invite link for this group just yet. That means we can't invite new members using a link for now.")
+        return
     bot_member = bot.get_chat_member(chat_id, 6133256899)
     if bot_member.privileges.can_invite_users is False:
         bot.send_message(chat_id,"❌ Insufficient permissions for the robot, please grant at least the following admin permissions:\n- Invite members via link")
