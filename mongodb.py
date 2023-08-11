@@ -18,7 +18,7 @@ cluster_url = 'mongodb+srv://adibnslboy:' + password + '@bnslboy.02zrow4.mongodb
 client = MongoClient(cluster_url)
 
 # Access the desired database
-db = client['main']
+db = client['main2']
 
 list_file = os.path.join(os.getcwd(), 'lists.json')
 
