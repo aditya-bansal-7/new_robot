@@ -648,6 +648,8 @@ def dice_handler(client, message):
     if data:
         emoji = data['emoji']
         participants = data['participants']
+        if emoji == "⚽️":
+            emoji = "⚽"   
         if emoji == message.dice.emoji:
             user_id = str(message.from_user.id)
             value = message.dice.value
