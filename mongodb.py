@@ -645,7 +645,6 @@ score_board = {}
 @bot.on_message(filters.dice)
 def dice_handler(client, message):
     data = dices.find_one({'chat_id': message.chat.id, 'is_done': {'$exists': False}})
-    
     if data:
         emoji = data['emoji']
         participants = data['participants']
@@ -694,7 +693,7 @@ def send_score_board(chat_id):
         for user_id in user_ids:
             score = participants[user_id]['score']
             first_name = participants[user_id]['first_name']
-            message_text += f"🔹 <a href='tg://user?id={user_id}'>{first_name}</a> - 分数: {score}\n"
+            message_text += f"🔹 <a href='tg://user?id={user_id}'>{first_name}</a> - score : {score}\n"
     message_text += "\nUse /ranks to view the top 10 🏆"
     bot.send_message(chat_id, message_text)
     del score_board[str(chat_id)]
@@ -793,7 +792,10 @@ def dice_handler(client, message):
     else:
         bot.send_message(chat_id, message_text)
     bot.send_dice(chat_id, emoji)
-    bot.delete_messages(chat_id, message.id)
+    try:
+        bot.delete_messages(chat_id, message.id)
+    except Exception:
+        pass
     time_thread = threading.Thread(target=time_check)
     time_thread.start()
 
@@ -890,6 +892,9 @@ def time_check():
             if i == 1:
                 return False
             time.sleep(10)
+
+time_thread = threading.Thread(target=time_check)
+time_thread.start()
 
 @bot.on_message(filters.command(['twisend']))
 def twitter_send(client,message):
