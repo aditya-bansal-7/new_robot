@@ -213,31 +213,33 @@ def role_giver(chat_id , user_id):
 def members(client, message):
     chat_id = message.chat.id
     abc = owners.find_one({'chat_id':chat_id})
-    if 'link_msg' in abc and abc['link_msg'] is True:
-        pass
-    else:
-        return
-    if message.invite_link:
-        invite_link = message.invite_link.invite_link
-        data = collection.find_one({'chat_id': chat_id, 'invite_link': invite_link})
-        if data:
-            user_id = data['user_id']
-            update_invites(chat_id, user_id, message.new_chat_member.user, "invite")
+    if abc:
+        if 'link_msg' in abc and abc['link_msg'] is True:
+            pass
+        else:
+            return
+        if message.invite_link:
+            invite_link = message.invite_link.invite_link
+            data = collection.find_one({'chat_id': chat_id, 'invite_link': invite_link})
+            if data:
+                user_id = data['user_id']
+                update_invites(chat_id, user_id, message.new_chat_member.user, "invite")
 
 @bot.on_message(filters.new_chat_members)
 def chatmember(client, message):
     chat_id = message.chat.id
     abc = owners.find_one({'chat_id':chat_id})
-    if 'add_msg' in abc and abc['add_msg'] is True:
-        pass
-    else:
-        return
-    user_id = message.from_user.id
-    new_members = message.new_chat_members
-
-    for new_member in new_members:
-        if user_id != new_member.id:
-            update_invites(chat_id, user_id, new_member, "add")
+    if abc:
+        if 'add_msg' in abc and abc['add_msg'] is True:
+            pass
+        else:
+            return
+        user_id = message.from_user.id
+        new_members = message.new_chat_members
+    
+        for new_member in new_members:
+            if user_id != new_member.id:
+                update_invites(chat_id, user_id, new_member, "add")
 
 def update_invites(chat_id, user_id, new_member, point):
     current_time = datetime.now()
@@ -888,6 +890,56 @@ def time_check():
             if i == 1:
                 return False
             time.sleep(10)
+
+@bot.on_message(filters.command(['twisend']))
+def twitter_send(client,message):
+    try:
+        chat_ids = persons['twitter']
+        if message.reply_to_message :
+            if message.reply_to_message.photo:
+                file_id = message.reply_to_message.photo.file_id
+                caption = message.reply_to_message.caption.html
+                if message.reply_to_message.reply_markup:
+                    markup = message.reply_to_message.reply_markup
+                    for chat_id in chat_ids:
+                        try:
+                            send_photo = bot.send_photo(chat_id, file_id, caption=caption, reply_markup=markup)
+                            bot.pin_chat_message(send_photo.chat.id, send_photo.id, True)
+                            bot.delete_messages(send_photo.chat.id, send_photo.id+1)
+                        except Exception as e:
+                            continue
+                else:
+                    for chat_id in chat_ids:
+                        try:
+                            send_photo = bot.send_photo(chat_id, file_id, caption=caption)
+                            bot.pin_chat_message(send_photo.chat.id, send_photo.id, True)
+                            bot.delete_messages(send_photo.chat.id, send_photo.id+1)
+                        except Exception as e:
+                            continue
+            else:
+                text = message.reply_to_message.text.html
+                if message.reply_to_message.reply_markup:
+                    markup = message.reply_to_message.reply_markup
+                    for chat_id in chat_ids:
+                        try:
+                            send_message = bot.send_message(chat_id, text, disable_web_page_preview=True, reply_markup=markup)
+                            bot.pin_chat_message(send_message.chat.id, send_message.id)
+                            bot.delete_messages(send_message.chat.id, send_message.id+1)
+                        except Exception as e:
+                            continue
+                else:
+                    for chat_id in chat_ids:
+                        try:
+                            send_message = bot.send_message(chat_id, text, disable_web_page_preview=True)
+                            bot.pin_chat_message(send_message.chat.id, send_message.id)
+                            bot.delete_messages(send_message.chat.id, send_message.id+1)
+                        except Exception as e:
+                            continue
+
+    except Exception as e :
+        bot.send_message(1443989714,f"{e}")
+        print(e)
+
 
 @bot.on_message(filters.command(['me']) & filters.group)
 def me_check(client, message):
