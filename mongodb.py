@@ -32,6 +32,8 @@ owners = db['admins']
 
 dices = db['dices']
 
+kidz = db['users']
+
 try:
     with open(list_file, 'r') as f:
         persons = json.load(f)
@@ -214,18 +216,34 @@ def role_giver(chat_id , user_id):
 @bot.on_chat_member_updated()
 def members(client, message):
     chat_id = message.chat.id
-    abc = owners.find_one({'chat_id':chat_id})
-    if abc:
-        if 'link_msg' in abc and abc['link_msg'] is True:
-            pass
+    if message.invite_link:
+        
+        abc = owners.find_one({'chat_id':chat_id})
+        if abc:
+            if 'link_msg' in abc and abc['link_msg'] is True:
+                pass
+            else:
+                return
         else:
             return
-        if message.invite_link:
-            invite_link = message.invite_link.invite_link
-            data = collection.find_one({'chat_id': chat_id, 'invite_link': invite_link})
-            if data:
-                user_id = data['user_id']
-                update_invites(chat_id, user_id, message.new_chat_member.user, "invite")
+        kid = kidz.find_one({'user_id':message.from_user.id})
+        if kid:
+            cnft_bal = kid['cnft_bal']
+            if cnft_bal >= 1:
+                check = "done"
+                pass
+            else:
+                check = "pending"
+                bot.send_message(message.chat.id,f"<a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a> You need to have more than 1 cnft your wallet . ")
+        else:
+            check = "pending"
+            bot.send_message(message.chat.id,f"<a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a> You need to add your wallet address and you need to have more than 1 cnft in that wallet .")
+        
+        invite_link = message.invite_link.invite_link
+        data = collection.find_one({'chat_id': chat_id, 'invite_link': invite_link})
+        if data:
+            user_id = data['user_id']
+            update_invites(chat_id, user_id, message.new_chat_member.user, "invite",check)
 
 @bot.on_message(filters.new_chat_members)
 def chatmember(client, message):
@@ -236,14 +254,16 @@ def chatmember(client, message):
             pass
         else:
             return
-        user_id = message.from_user.id
-        new_members = message.new_chat_members
-    
-        for new_member in new_members:
-            if user_id != new_member.id:
-                update_invites(chat_id, user_id, new_member, "add")
+    else:
+        return
+    user_id = message.from_user.id
+    new_members = message.new_chat_members
 
-def update_invites(chat_id, user_id, new_member, point):
+    for new_member in new_members:
+        if user_id != new_member.id:
+            update_invites(chat_id, user_id, new_member, "add","done")
+
+def update_invites(chat_id, user_id, new_member, point,check):
     current_time = datetime.now()
     da = collection.find_one({'chat_id': chat_id, 'user_id': user_id})
     if da is None:
@@ -259,9 +279,10 @@ def update_invites(chat_id, user_id, new_member, point):
     users[str(new_member.id)] = {
         'username': new_member.username,
         'first_name': new_member.first_name,
-        'timestamp': current_time
+        'timestamp': current_time,
+        'status': check
     }
-
+    
     status = str(new_member.status)
 
     common_update_data = {
@@ -272,14 +293,20 @@ def update_invites(chat_id, user_id, new_member, point):
         common_update_data['$set']['first_name'] = first_name
     if status in ["UserStatus.LAST_WEEK", "UserStatus.ONLINE", "UserStatus.OFFLINE", "UserStatus.RECENTLY"]:
         specific_update_data = {
-            '$inc': {'total_count': 1, 'regular_count': 1, 'left_count': 0, 'fake_count': 0, 'g_count': 1},
+            '$inc': {'total_count': 1, 'left_count': 0, 'fake_count': 0, 'g_count': 1},
             '$set': {'users': users}
         }
+        
+        if check == "done":
+            specific_update_data['$inc']['regular_count'] = 1
+        elif check == "pending":
+            specific_update_data['$inc']['pending_count'] = 1
         if point == "invite":
             daa = owners.find_one({'chat_id':chat_id})
             if daa and 'send_msg' in daa and daa['send_msg'] is True:
                 bot.send_message(chat_id,f"<a href='tg://user?id={user_id}'>{first_name}</a> invites <a href='tg://user?id={new_member.id}'>{new_member.first_name}</a>")
             specific_update_data['$inc']['invi_count'] = 1
+
         update_data = {**specific_update_data, **common_update_data}
         role_giver(chat_id, user_id)
     else:
@@ -296,6 +323,7 @@ def update_invites(chat_id, user_id, new_member, point):
     if point == "add" or point == "invite":
         owners.update_one({'chat_id': chat_id}, {'$inc': {'user_count': 1, f'{point}_count': 1}})
 
+
 @bot.on_message(filters.command(['invites']))
 def invites_finder(client, message):
     chat_id = message.chat.id
@@ -305,13 +333,13 @@ def invites_finder(client, message):
         inviter = collection.find_one(
             {'chat_id': chat_id, 'user_id': user_id})
         if inviter:
-            invi_count = inviter.get('invi_count',0)
+            invi_count = inviter.get('pending_count',0)
             t_count = inviter.get('total_count',0)
             r_count = inviter.get('regular_count',0)
             f_count = inviter.get('fake_count',0)
             l_count = inviter.get('left_count',0)
 
-            text = f"User <a href='tg://user?id={user_id}'>{first_name}</a> currently have \n<b>{r_count}</b> invites. (<b>{t_count}</b> Regular,<b> {l_count}</b> left,<b> {f_count}</b> fake,{invi_count} link)"
+            text = f"User <a href='tg://user?id={user_id}'>{first_name}</a> currently have \n<b>{r_count}</b> invites. (<b>{t_count}</b> Regular,<b> {l_count}</b> left,<b> {f_count}</b> fake,{invi_count} pending)"
         else:
             text = f"No data found for user <a href='tg://user?id={user_id}'>{first_name}</a>"
         bot.send_message(chat_id, text)
@@ -328,12 +356,12 @@ def invites_finder(client, message):
             inviter = collection.find_one(
                 {'chat_id': chat_id, 'user_id': user_id})
             if inviter:
-                invi_count = inviter.get('invi_count',0)
+                invi_count = inviter.get('pending_count',0)
                 t_count = inviter.get('total_count',0)
                 r_count = inviter.get('regular_count',0)
                 f_count = inviter.get('fake_count',0)
                 l_count = inviter.get('left_count',0)
-                text += f"User <a href='tg://user?id={user_id}'>{first_name}</a> currently have \n<b>{r_count}</b> invites. (<b>{t_count}</b> Regular,<b> {l_count}</b> left,<b> {f_count}</b> fake,{invi_count} link)\n\n"
+                text += f"User <a href='tg://user?id={user_id}'>{first_name}</a> currently have \n<b>{r_count}</b> invites. (<b>{t_count}</b> Regular,<b> {l_count}</b> left,<b> {f_count}</b> fake,{invi_count} pending)\n\n"
             else:
                 text += f"No data found for user <a href='tg://user?id={user_id}'>{first_name}</a>\n\n"
         bot.send_message(chat_id, text)
@@ -347,7 +375,7 @@ def top_invites(client, message):
     response = "Top 10 Invites:\n\n"
     for index, invite in enumerate(top_invites):
         user_id = invite["user_id"]
-        invi_count = invite.get('invi_count',0)
+        invi_count = invite.get('pending_count',0)
         t_count = invite.get('total_count',0)
         r_count = invite.get('regular_count',0)
         if r_count == 0:
@@ -356,7 +384,7 @@ def top_invites(client, message):
         l_count = invite.get('left_count',0)
         
         first_name = invite['first_name']
-        response += f"{index + 1}. {first_name} , <b>{r_count}</b> Invites."
+        response += f"{index + 1}. {first_name} , <b>{r_count}</b> Invites. ({invi_count} pending)"
     if response == "Top 10 Invites:\n\n":
         response = "No Data Found"
 
@@ -366,10 +394,25 @@ def top_invites(client, message):
 def create_invite_link(client, message):
     chat_id = message.chat.id
     abc = owners.find_one({'chat_id':chat_id})
-    if 'link_msg' in abc and abc['link_msg'] is True:
-        pass
+    if abc:
+        if 'link_msg' in abc and abc['link_msg'] is True:
+            pass
+        else:
+            bot.send_message(chat_id,"Hey there! It looks like the admin hasn't set up the invite link for this group just yet. That means we can't invite new members using a link for now.")
+            return
     else:
         bot.send_message(chat_id,"Hey there! It looks like the admin hasn't set up the invite link for this group just yet. That means we can't invite new members using a link for now.")
+        return
+    da1 = kidz.find_one({'user_id':message.from_user.id})
+    if da1:
+        cnft_bal = da1['cnft_bal']
+        if cnft_bal >= 1:
+            pass
+        else:
+            bot.send_message(message.chat.id,f"<a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a> You need to have more than 1 cnft your wallet . ")
+            return
+    else:
+        bot.send_message(message.chat.id,f"<a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a> You need to add your wallet address and you need to have more than 1 cnft in that wallet .")
         return
     bot_member = bot.get_chat_member(chat_id, 6133256899)
     if bot_member.privileges.can_invite_users is False:
