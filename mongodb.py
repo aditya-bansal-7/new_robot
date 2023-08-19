@@ -470,7 +470,7 @@ def create_invite_link(client, message):
             bot.send_message(chat_id, message_text)
             collection.update_one(
                 {'chat_id': chat_id, 'user_id': user_id},
-                {'$set': {'invite_link': invite_link,'invi_count':0}},
+                {'$set': {'invite_link': invite_link,'invi_count':0,'username':message.from_user.username,'first_name':message.from_user.first_name}},
                 upsert=True
             )
             owners.update_one({'chat_id':chat_id},{'$inc':{'link_count':1}},upsert=True)
