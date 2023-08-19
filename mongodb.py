@@ -8,16 +8,31 @@ import concurrent.futures
 import uuid
 import threading
 from datetime import datetime
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
 
-# Replace <password> with your actual password
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/spreadsheets",
+         "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
+
+
+credentials = ServiceAccountCredentials.from_json_keyfile_name("clientgsheet.json", scope)
+
+client2 = gspread.authorize(credentials)
+
+spreadsheet_id = "1kVIKphMbFy3iZLi71jlOtLmQB7J6ijis8G97xNIrSmQ"
+spreadsheet = client2.open_by_key(spreadsheet_id)
+
+worksheet0 = spreadsheet.get_worksheet(0)
+worksheet1 = spreadsheet.get_worksheet(1)
+
 password = '1Gwhiuum22x0hmqf'
 cluster_url = 'mongodb+srv://adibnslboy:' + password + '@bnslboy.02zrow4.mongodb.net/'
 
-# Create a MongoDB client
+
 client = MongoClient(cluster_url)
 
-# Access the desired database
+
 db = client['main2']
 
 list_file = os.path.join(os.getcwd(), 'lists.json')
@@ -243,6 +258,18 @@ def members(client, message):
         data = collection.find_one({'chat_id': chat_id, 'invite_link': invite_link})
         if data:
             user_id = data['user_id']
+            username2 = data['username']
+            first_name2 = data['first_name']
+            rows = []
+            username = message.from_user.username
+            if username is None:
+                username = message.from_user.first_name
+            if username2 is None:
+                username = first_name2
+            pydate = datetime.now().strftime('%Y-%m-%d')
+            rows.append([username, invite_link,username2, message.chat.title,pydate])   
+            existing_row_count = len(worksheet1.get_all_values())
+            worksheet1.insert_rows(rows, existing_row_count + 1)
             update_invites(chat_id, user_id, message.new_chat_member.user, "invite",check)
 
 @bot.on_message(filters.new_chat_members)
@@ -447,7 +474,14 @@ def create_invite_link(client, message):
                 upsert=True
             )
             owners.update_one({'chat_id':chat_id},{'$inc':{'link_count':1}},upsert=True)
-
+            rows = []
+            username = message.from_user.username
+            if username is None:
+                username = message.from_user.first_name
+            pydate = datetime.now().strftime('%Y-%m-%d')
+            rows.append([username, invite_link, message.chat.title,pydate])   
+            existing_row_count = len(worksheet0.get_all_values())
+            worksheet0.insert_rows(rows, existing_row_count + 1)
 
 def delete_tracker():
     while True:
