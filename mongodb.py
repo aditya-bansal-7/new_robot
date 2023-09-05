@@ -142,7 +142,7 @@ If your group as an administrator does not appear here:
             markup.inline_keyboard.append([types.InlineKeyboardButton(f"{title}",callback_data=f"chat_group:{chat}")])
             
             is_markup = True
-            if i == 2:
+            if i == 7:
                 markup.inline_keyboard.append([types.InlineKeyboardButton(f"Next Page ->",callback_data=f"nxtPage:{i}")])
                 break
             i += 1
