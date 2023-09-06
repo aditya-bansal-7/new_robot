@@ -237,24 +237,25 @@ def members(client, message):
         abc = owners.find_one({'chat_id':chat_id})
         if abc:
             if 'link_msg' in abc and abc['link_msg'] is True:
-                pass
+                if 'cnft_msg' in abc and abc['cnft_msg'] is True:
+                    kid = kidz.find_one({'user_id':message.from_user.id})
+                    if kid:
+                        cnft_bal = kid['cnft_bal']
+                        if cnft_bal >= 1:
+                            check = "done"
+                            pass
+                        else:
+                            check = "pending"
+                            bot.send_message(message.chat.id,f"<a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a> You need to have more than 1 cnft your wallet . ")
+                    else:
+                        check = "pending"
+                        bot.send_message(message.chat.id,f"<a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a> You need to add your wallet address and you need to have more than 1 cnft in that wallet .")
+                else:
+                    check = "done"
             else:
                 return
         else:
             return
-        kid = kidz.find_one({'user_id':message.from_user.id})
-        if kid:
-            cnft_bal = kid['cnft_bal']
-            if cnft_bal >= 1:
-                check = "done"
-                pass
-            else:
-                check = "pending"
-                bot.send_message(message.chat.id,f"<a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a> You need to have more than 1 cnft your wallet . ")
-        else:
-            check = "pending"
-            bot.send_message(message.chat.id,f"<a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a> You need to add your wallet address and you need to have more than 1 cnft in that wallet .")
-        
         invite_link = message.invite_link.invite_link
         data = collection.find_one({'chat_id': chat_id, 'invite_link': invite_link})
         if data:
@@ -424,23 +425,23 @@ def create_invite_link(client, message):
     abc = owners.find_one({'chat_id':chat_id})
     if abc:
         if 'link_msg' in abc and abc['link_msg'] is True:
-            pass
+            if 'cnft_msg' in abc and abc['cnft_msg'] is True:
+                    kid = kidz.find_one({'user_id':message.from_user.id})
+                    if kid:
+                        cnft_bal = kid['cnft_bal']
+                        if cnft_bal >= 1:
+                            pass
+                        else:
+                            bot.send_message(message.chat.id,f"<a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a> You need to have more than 1 cnft your wallet . ")
+                            return
+                    else:
+                        bot.send_message(message.chat.id,f"<a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a> You need to add your wallet address and you need to have more than 1 cnft in that wallet .")
+                        return
         else:
             bot.send_message(chat_id,"Hey there! It looks like the admin hasn't set up the invite link for this group just yet. That means we can't invite new members using a link for now.")
             return
     else:
         bot.send_message(chat_id,"Hey there! It looks like the admin hasn't set up the invite link for this group just yet. That means we can't invite new members using a link for now.")
-        return
-    da1 = kidz.find_one({'user_id':message.from_user.id})
-    if da1:
-        cnft_bal = da1['cnft_bal']
-        if cnft_bal >= 1:
-            pass
-        else:
-            bot.send_message(message.chat.id,f"<a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a> You need to have more than 1 cnft your wallet . ")
-            return
-    else:
-        bot.send_message(message.chat.id,f"<a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a> You need to add your wallet address and you need to have more than 1 cnft in that wallet .")
         return
     bot_member = bot.get_chat_member(chat_id, 6133256899)
     if bot_member.privileges.can_invite_users is False:
