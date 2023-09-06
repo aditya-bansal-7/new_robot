@@ -412,7 +412,7 @@ def top_invites(client, message):
         l_count = invite.get('left_count',0)
         
         first_name = invite['first_name']
-        response += f"{index + 1}. {first_name} , <b>{r_count}</b> Invites. ({invi_count} pending)"
+        response += f"{index + 1}. {first_name} , <b>{r_count}</b> Invites. ({invi_count} pending)\n"
     if response == "Top 10 Invites:\n\n":
         response = "No Data Found"
 
